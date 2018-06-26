@@ -1,0 +1,128 @@
+# 180626: Reza Farrahi (imriss@yahoo.com)
+apiVersion: v1
+kind: Service
+metadata:
+  name: apache
+spec:
+  type: NodePort
+  ports:
+  - port: 30443
+    targetPort: 30443
+  selector:
+    app: apache
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: lpv-lpv
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+  - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-storage
+  local:
+    path: /lpvclient
+  volumeMode: Block
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - kube-node-1
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: lpv-lpv-claim
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: local-storage
+  resources:
+    requests:
+      storage: 10Gi
+---
+
+---
+apiVersion: apps/v1 # for versions before 1.9.0 use apps/v1beta2
+kind: Deployment
+metadata:
+  name: apache
+spec:
+  selector:
+    matchLabels:
+      app: apache
+  replicas: 1
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: apache
+    spec:
+      containers:
+      - image: httpd:2.4
+        # imagePullPolicy: Never
+        name: apache
+        env:
+          # Use secret in real usage
+        - name: APACHE_ROOT_PASSWORD
+          value: password
+        ports:
+        - containerPort: 30443
+          name: https
+        volumeMounts:
+        - name: apache-persistent-storage
+          mountPath: /var/log/apache2
+          subPath: apache-logs
+        - name: apache-persistent-storage
+          mountPath: /etc/apache2/ssl
+          subPath: apache-ssl
+        - name: apache-persistent-storage
+          mountPath: /etc/apache2/sites-enabled
+          subPath: apache-conf
+      imagePullSecrets:
+        - name: genericregistrykey
+      volumes:
+      - name: apache-persistent-storage
+        persistentVolumeClaim:
+          claimName: lpv-lpv-claim
+---
+apiVersion: apps/v1 # for versions before 1.9.0 use apps/v1beta2
+kind: Deployment
+metadata:
+  name: mysql
+spec:
+  selector:
+    matchLabels:
+      app: mysql
+  replicas: 1
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - image: mysql:5.7
+        name: mysql
+        env:
+          # Use secret in real usage
+        - name: MYSQL_ROOT_PASSWORD
+          value: password
+        ports:
+        - containerPort: 3306
+          name: mysql
+        volumeMounts:
+        - name: mysql-persistent-storage
+          mountPath: /var/lib/mysql
+          subPath: mysql
+      volumes:
+      - name: mysql-persistent-storage
+        persistentVolumeClaim:
+          claimName: lpv-lpv-claim
