@@ -8,7 +8,7 @@
 2. A spare storage device on the host.
    - It is assumed that it is /dev/xvdf
 3. kubeadm-dind and Docker are being used to spin Kubernetes nodes.
-   - kubeadm-dind: https://...
+   - kubeadm-dind: https://github.com/kubernetes-sigs/kubeadm-dind-cluster
 
 ## Procedure:
 1. Bring up the nodes on the host:
